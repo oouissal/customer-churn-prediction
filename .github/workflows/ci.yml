@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install lint tooling
+        run: pip install ruff
+      - name: Ruff check
+        run: ruff check src backend tests monitoring scripts
+
+  test:
+    name: Tests + coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r backend/requirements.txt
+          pip install pytest pytest-cov httpx
+      - name: Download raw dataset
+        run: |
+          mkdir -p data/raw
+          curl -L -o data/raw/Telco-Customer-Churn.csv \
+            "https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv"
+      - name: Reproduce pipeline (DVC: validate -> train -> evaluate)
+        run: dvc repro
+      - name: Unit + API tests
+        run: pytest --cov=src --cov=backend --cov-report=term-missing
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: .coverage
+          retention-days: 7
+
+  structure:
+    name: Project structure validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Validate repository structure
+        run: python scripts/validate_structure.py
+
+  docker:
+    name: Build Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - name: Install Python dependencies (includes DVC)
+        run: pip install -r requirements.txt
+      - name: Download raw dataset
+        run: |
+          mkdir -p data/raw
+          curl -L -o data/raw/Telco-Customer-Churn.csv \
+            "https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv"
+      - name: Reproduce model artefacts (needed to build the backend image)
+        run: dvc repro
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          tags: churn-backend:ci
+      - name: Build frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: false
+          tags: churn-frontend:ci
+      - name: Validate compose file
+        run: docker compose config -q
