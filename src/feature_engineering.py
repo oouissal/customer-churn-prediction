@@ -66,7 +66,7 @@ class FeatureEngineer(BaseEstimator, TransformerMixin):
     ``ColumnTransformer`` can select its own final feature lists.
     """
 
-    def fit(self, X: pd.DataFrame, y=None) -> "FeatureEngineer":
+    def fit(self, X: pd.DataFrame, y=None) -> FeatureEngineer:
         """No statistics are learned — kept for the scikit-learn API."""
         return self
 

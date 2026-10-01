@@ -10,7 +10,6 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
-
 from src import config
 from src.predict import (
     explain_prediction,

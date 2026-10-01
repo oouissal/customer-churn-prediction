@@ -2,7 +2,6 @@
 
 import numpy as np
 import pandas as pd
-
 from src import config
 from src.data_preprocessing import (
     build_preprocessor,

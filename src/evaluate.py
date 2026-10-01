@@ -36,7 +36,6 @@ from sklearn.metrics import (  # noqa: E402
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src import config  # noqa: E402
 
 sns.set_theme(style="whitegrid", palette="muted")
 
@@ -131,7 +130,7 @@ def plot_confusion_matrix(
     labels = ["No churn", "Churn"]
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
     for ax, data, fmt, cbar in zip(
-        axes, [cm, cm_norm], ["d", ".1%"], [True, False]
+        axes, [cm, cm_norm], ["d", ".1%"], [True, False], strict=True
     ):
         sns.heatmap(
             data, annot=True, fmt=fmt, cmap="Blues", cbar=cbar,

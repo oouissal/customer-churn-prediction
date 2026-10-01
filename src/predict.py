@@ -18,10 +18,14 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import joblib
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    import matplotlib
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -228,7 +232,7 @@ def aggregate_shap(names: list[str], shap_row, X_row: pd.DataFrame) -> pd.DataFr
     contrib: dict[str, float] = {}
     value: dict[str, object] = {}
 
-    for name, v in zip(names, shap_row):
+    for name, v in zip(names, shap_row, strict=True):
         orig = _original_feature_name(name)
         contrib[orig] = contrib.get(orig, 0.0) + float(v)
         value[orig] = _feature_display_value(name, orig, X_row)
@@ -287,7 +291,7 @@ def probability_shifts(explanation: dict) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Explanation plots
 # ---------------------------------------------------------------------------
-def plot_waterfall(explanation: dict, probability: float) -> "matplotlib.figure.Figure":
+def plot_waterfall(explanation: dict, probability: float) -> matplotlib.figure.Figure:
     """Plot the top SHAP contributions as a probability-impact waterfall."""
     import matplotlib
 
@@ -309,7 +313,7 @@ def plot_waterfall(explanation: dict, probability: float) -> "matplotlib.figure.
     ax.set_title(
         f"SHAP waterfall — predicted churn probability {probability:.1%}"
     )
-    for i, (v, name) in enumerate(zip(top["prob_shift"] * 100, labels)):
+    for i, (v, _name) in enumerate(zip(top["prob_shift"] * 100, labels, strict=True)):
         offset = 0.15 if v >= 0 else -0.15
         ax.text(v + offset, i, f"{v:+.1f}", va="center",
                 ha="left" if v >= 0 else "right", fontsize=9)
@@ -318,7 +322,7 @@ def plot_waterfall(explanation: dict, probability: float) -> "matplotlib.figure.
 
 
 def plot_global_importance(pipeline, X: pd.DataFrame, top_n: int = 20,
-                           save_path=None) -> "matplotlib.figure.Figure":
+                           save_path=None) -> matplotlib.figure.Figure:
     """Bar chart of mean |SHAP| per original feature (global importance)."""
     import matplotlib
 
@@ -345,7 +349,7 @@ def plot_global_importance(pipeline, X: pd.DataFrame, top_n: int = 20,
 
 
 def plot_global_summary(pipeline, X: pd.DataFrame, top_n: int = 20,
-                        save_path=None) -> "matplotlib.figure.Figure":
+                        save_path=None) -> matplotlib.figure.Figure:
     """SHAP beeswarm summary plot on the original (aggregated) features."""
     import matplotlib
 
