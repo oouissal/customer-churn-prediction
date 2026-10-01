@@ -1,0 +1,80 @@
+{
+  "model_name": "Logistic Regression",
+  "trained_at": "2026-10-01T18:51:27+00:00",
+  "selection_rule": "ROC-AUC first; F1 (churn) tie-break within 0.005; interpretability as final tie-break",
+  "threshold": 0.61,
+  "threshold_metric": "f1",
+  "cv_table": [
+    {
+      "model": "Logistic Regression",
+      "roc_auc_mean": 0.8485492349191507,
+      "roc_auc_std": 0.012583179512642055,
+      "f1_mean": 0.630104148121869,
+      "f1_std": 0.013434407439972713,
+      "recall_mean": 0.8010793650793652,
+      "recall_std": 0.010977467244315751,
+      "precision_mean": 0.5193883015123444,
+      "precision_std": 0.015098569067668599
+    },
+    {
+      "model": "Random Forest",
+      "roc_auc_mean": 0.8404469233509205,
+      "roc_auc_std": 0.012056340393896511,
+      "f1_mean": 0.6275889294018066,
+      "f1_std": 0.016509005246123566,
+      "recall_mean": 0.7101111111111111,
+      "recall_std": 0.02500742079332033,
+      "precision_mean": 0.5628268813840969,
+      "precision_std": 0.02030325442083719
+    },
+    {
+      "model": "XGBoost",
+      "roc_auc_mean": 0.8381045196167918,
+      "roc_auc_std": 0.010098217166105148,
+      "f1_mean": 0.6265205105331004,
+      "f1_std": 0.009918661149709665,
+      "recall_mean": 0.7413253968253968,
+      "recall_std": 0.02417742677545502,
+      "precision_mean": 0.5431999035266013,
+      "precision_std": 0.016685413684240948
+    }
+  ],
+  "validation_metrics_at_tuned_threshold": {
+    "threshold": 0.61,
+    "precision": 0.5726681127982647,
+    "recall": 0.7058823529411765,
+    "f1": 0.6323353293413174
+  },
+  "test_metrics_threshold_050": {
+    "threshold": 0.5,
+    "accuracy": 0.7331440738112136,
+    "precision": 0.4983164983164983,
+    "recall": 0.7914438502673797,
+    "f1": 0.6115702479338843,
+    "roc_auc": 0.842049652535586,
+    "tn": 737,
+    "fp": 298,
+    "fn": 78,
+    "tp": 296
+  },
+  "test_metrics_tuned_threshold": {
+    "threshold": 0.61,
+    "accuracy": 0.7757274662881476,
+    "precision": 0.561965811965812,
+    "recall": 0.7032085561497327,
+    "f1": 0.6247030878859857,
+    "roc_auc": 0.842049652535586,
+    "tn": 830,
+    "fp": 205,
+    "fn": 111,
+    "tp": 263
+  },
+  "churn_rate_train": 0.2653532126375577,
+  "churn_rate_test": 0.2654364797728886,
+  "config": {
+    "random_state": 42,
+    "test_size": 0.2,
+    "validation_size": 0.25,
+    "cv_folds": 5
+  }
+}
