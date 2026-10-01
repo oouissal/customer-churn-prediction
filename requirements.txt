@@ -1,0 +1,27 @@
+# Core data stack
+numpy==2.5.3
+pandas==3.0.6
+joblib==1.6.0
+
+# Machine learning
+scikit-learn==1.9.1
+xgboost==3.4.1
+
+# Explainable AI
+shap==0.52.0
+
+# Visualisation
+matplotlib==3.11.2
+seaborn==0.13.2
+plotly==7.1.0
+
+# Application
+streamlit==1.64.0
+
+# Testing
+pytest==9.1.1
+
+# Notebook tooling (scripts/build_notebooks.py)
+nbformat==5.11.1
+nbclient==0.11.0
+ipykernel==7.4.0
