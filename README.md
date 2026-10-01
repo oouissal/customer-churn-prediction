@@ -1,61 +1,77 @@
-# Customer Churn Prediction
+# Customer Churn Prediction — End-to-End ML Platform
 
-**End-to-end customer churn prediction using Python, Scikit-learn, XGBoost, SHAP and Streamlit.**
+**An end-to-end machine learning platform that predicts customer churn, explains every prediction, and serves the model through a professional web application — covering the full MLOps lifecycle.**
 
-[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
-[![Scikit-learn](https://img.shields.io/badge/Scikit--learn-1.9-orange.svg)](https://scikit-learn.org/)
-[![XGBoost](https://img.shields.io/badge/XGBoost-3.4-red.svg)](https://xgboost.readthedocs.io/)
-[![SHAP](https://img.shields.io/badge/SHAP-0.52-ff69b4.svg)](https://shap.readthedocs.io/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.64-ff4b4b.svg)](https://streamlit.io/)
-[![Tests](https://img.shields.io/badge/tests-34%20passed-brightgreen.svg)](tests/)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.142-009688.svg)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
+[![MLflow](https://img.shields.io/badge/MLflow-3.16-0194e2.svg)](https://mlflow.org/)
+[![DVC](https://img.shields.io/badge/DVC-3.67-945dd6.svg)](https://dvc.org/)
+[![Tests](https://img.shields.io/badge/tests-92%20passed-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-
-A complete, reproducible machine-learning project that predicts whether a
-telecom customer is likely to churn, explains **why** with SHAP, and serves
-the model through an interactive Streamlit application — covering the full
-Data Science lifecycle:
-
-**Data → Cleaning → EDA → Feature Engineering → Modelling → Evaluation → Explainability → App**
 
 ---
 
 ## Overview
 
-Customer churn (the loss of customers to competitors) is one of the most
+Customer churn — customers leaving for a competitor — is one of the most
 expensive problems in subscription businesses: acquiring a new customer
 typically costs 5–25× more than retaining an existing one. This project
 builds a production-style ML system that
 
 1. scores every customer with a **churn probability**,
-2. flags high-risk customers for a retention campaign,
-3. explains each prediction in business terms (short tenure, month-to-month
-   contract, high monthly charges, …) so account managers can act on it.
+2. flags **high-risk customers** for a retention campaign,
+3. **explains each prediction** in business terms (short tenure,
+   month-to-month contract, high monthly charges, …) so account managers can
+   act on it,
+4. serves everything through a **FastAPI REST API** and a **React
+   dashboard**,
+5. manages the model lifecycle with **MLflow** (experiments + registry),
+   **DVC** (data & pipeline versioning) and **Evidently** (monitoring).
 
-The model is a **Logistic Regression** selected among three candidates
-(Logistic Regression, Random Forest, XGBoost) using cross-validation and a
-documented, business-aware selection rule.
-
-## Business Problem
+## Business Objective
 
 > *"Which customers are about to leave, and why?"*
 
 Given the profile of a telecom customer (tenure, contract, payment method,
 services, charges), predict whether they will churn in the near future and
-identify the main drivers, so the retention team can intervene before the
-customer leaves.
+identify the main drivers, so the retention team can intervene **before**
+the customer leaves. The key business metric is **recall for the churn
+class** — missing a churner has a real cost, so the decision threshold is
+tuned on the validation set instead of being fixed at 0.5.
 
-## Objectives
+## Architecture
 
-- Build a **leak-free** preprocessing + modelling pipeline with
-  scikit-learn `Pipeline` / `ColumnTransformer`.
-- Train and honestly compare **3 models** with stratified cross-validation
-  on a 60/20/20 train/validation/test split.
-- Optimise the **decision threshold** for the business use-case instead of
-  blindly using 0.5.
-- Focus on **recall for the churn class** — missing a churner has a real
-  business cost.
-- Explain global and individual predictions with **SHAP**.
-- Ship an interactive **Streamlit** demo and a **pytest** suite.
+```mermaid
+flowchart TB
+    UI["React + TypeScript dashboard<br/>(Vite · Tailwind · Recharts)"]
+    API["FastAPI REST API<br/>(Pydantic validation · OpenAPI docs)"]
+    SVC["Prediction Service<br/>+ SHAP Explanation Service"]
+    PIPE["Preprocessing Pipeline<br/>(FeatureEngineer → ColumnTransformer)"]
+    MODEL["Trained Model<br/>Logistic Regression<br/>(MLflow registry: customer-churn-model v1)"]
+    SHAP["SHAP explainability"]
+
+    UI -->|"JSON over REST"| API
+    API --> SVC
+    SVC --> PIPE
+    PIPE --> MODEL
+    SVC --> SHAP
+
+    subgraph MLOps["MLOps tooling"]
+        V["Pandera<br/>data validation"] --> T["DVC pipeline<br/>dvc repro"]
+        T --> MLF["MLflow tracking<br/>(customer-churn-prediction)"]
+        MLF --> REG["Model Registry<br/>version 1.0.0"]
+        MON["Evidently<br/>monitoring report"]
+        CI["GitHub Actions CI"]
+        DOCK["Docker Compose<br/>(frontend + backend + mlflow)"]
+    end
+```
+
+**Flow:** React frontend → FastAPI → Prediction Service → preprocessing
+pipeline → trained model → prediction + probability + SHAP explanation.
+The frontend never touches the ML model directly — every call goes through
+the REST API. Around the model: data validation, experiment tracking, model
+versioning, monitoring, CI/CD and containerisation.
 
 ## Dataset
 
@@ -70,336 +86,322 @@ binary target `Churn` (~26.5% churners).
 | Target | `Churn`: `Yes` / `No` (26.5% positive) |
 | Data quirks | `TotalCharges` stored as text; 11 blanks for brand-new customers (`tenure == 0`); `SeniorCitizen` stored as 0/1 |
 
-The raw CSV is **not committed** to the repository — see
-[`data/README.md`](data/README.md) for the download commands (one-liner for
-Windows / macOS / Linux).
 
-## Technologies
+## Machine Learning
 
-| Layer | Tools |
+### Preprocessing
+
+* **Data validation first** — the raw CSV is checked with a **Pandera**
+  schema (columns, dtypes, allowed categories, ranges, missing-value rules,
+  duplicates). Invalid data stops training with a readable error.
+* **Deterministic cleaning** — blank `TotalCharges` filled for brand-new
+  customers, `SeniorCitizen` mapped to Yes/No, duplicates dropped. Only
+  row-wise business rules are used, so nothing can leak between splits.
+* **Leak-free `ColumnTransformer`** — numerical features go through median
+  imputation + `StandardScaler`; categorical features through most-frequent
+  imputation + one-hot encoding (`handle_unknown="ignore"`). Every statistic
+  is learned **on training data only**.
+
+### Feature engineering
+
+Three business-driven, row-wise features (no learned statistics):
+
+| Feature | Why |
 | --- | --- |
-| Language | Python 3.11+ |
-| Data | pandas, NumPy |
-| Visualisation | Matplotlib, Seaborn, Plotly |
-| Machine learning | scikit-learn (Pipeline, ColumnTransformer), XGBoost |
-| Explainability | SHAP |
-| Application | Streamlit |
-| Testing | pytest |
-| Environment | venv, requirements.txt, Git |
+| `tenure_group` | churn risk collapses after 1–2 years — binning lets linear models capture that |
+| `num_services` | number of add-on services = "customer stickiness" |
+| `avg_monthly_spend` | `TotalCharges / tenure` — cleaner spending level than discounted monthly charges |
 
-## Project Architecture
+### Models & cross-validation
 
-```
-                ┌─────────────┐     ┌──────────────────┐
- raw CSV  ────► │  cleaning   │ ──► │ feature          │
-(data/raw)      │ (row-wise)  │     │ engineering      │
-                └─────────────┘     └──────────────────┘
-                                           │
-                              ┌────────────┴───────────┐
-                              │ 60/20/20 stratified    │
-                              │ train/val/test split   │
-                              └────────────┬───────────┘
-                              ┌────────────┴───────────┐
-                              │ 5-fold CV: LR / RF /   │
-                              │ XGBoost (class weights)│
-                              └────────────┬───────────┘
-                              ┌────────────┴───────────┐
-                              │ selection + threshold  │
-                              │ tuning + test eval     │
-                              └────────────┬───────────┘
-                     ┌─────────────────────┴──────────────┐
-                     ▼                                    ▼
-            models/churn_model.joblib             reports/figures/
-            (Pipeline + threshold)                metrics, plots, SHAP
-                     │                                    │
-                     ▼                                    ▼
-            ┌───────────────┐                   ┌────────────────┐
-            │ Streamlit app │  ◄── SHAP ──────► │ README,        │
-            │ (predictions  │                   │ notebooks       │
-            │  + reasons)   │                   │                │
-            └───────────────┘                   └────────────────┘
-```
+Three candidates are compared with **5-fold stratified cross-validation**
+on a 60/20/20 train/validation/test split:
 
-## Data Pipeline
+* **Logistic Regression** — `class_weight="balanced"`
+* **Random Forest** — 400 trees, balanced weights
+* **XGBoost** — 400 trees, `scale_pos_weight`
 
-All cleaning is **deterministic and row-wise** (no statistics learned, no
-leakage) and lives in
-[`src/data_preprocessing.py`](src/data_preprocessing.py):
+Class imbalance (~26.5% churners) is handled with class weights /
+`scale_pos_weight`; SMOTE is deliberately not used (see [docs/architecture.md](docs/architecture.md)).
 
-1. empty strings → `NaN`, `TotalCharges` → numeric (coerce);
-2. `SeniorCitizen` 0/1 → `No`/`Yes`;
-3. duplicates dropped (none present in the raw data);
-4. blank `TotalCharges` for brand-new customers (`tenure == 0`) filled with
-   the current `MonthlyCharges` (a new customer has no billing history yet).
+Selection rule: **highest mean CV ROC-AUC**, F1 tie-break within 0.005, then
+interpretability (Logistic Regression wins).
 
-Everything that **learns from the data** runs inside a scikit-learn
-`ColumnTransformer` fitted on the training set only:
+### Threshold tuning
 
-| Features | Treatment |
-| --- | --- |
-| Numerical (`tenure`, `MonthlyCharges`, `TotalCharges`, …) | median imputation + `StandardScaler` |
-| Categorical (contract, payment, services, …) | most-frequent imputation + `OneHotEncoder(handle_unknown="ignore")` |
-
-`handle_unknown="ignore"` keeps inference robust when the app receives an
-unseen category. The whole preprocessing is part of the saved pipeline, so
-training and inference use exactly the same code path.
-
-## Exploratory Data Analysis
-
-See [`notebooks/03_eda.ipynb`](notebooks/03_eda.ipynb) — the analysis
-answers concrete business questions:
-
-| Question | Answer (from the data) |
-| --- | --- |
-| Which segments churn most? | Month-to-month contracts (~43% churn) vs two-year (~3%) |
-| Does tenure matter? | Yes — risk collapses after the first 12 months |
-| Do charges matter? | Higher monthly charges → more churn (fiber bundles) |
-| Payment method? | Electronic check churns far more than automatic bank/credit card |
-| Internet service? | Fiber optic churns more than DSL or no internet |
-
-![Churn by contract](reports/figures/eda_churn_by_contract.png)
-![Tenure vs churn](reports/figures/eda_tenure_churn.png)
-![Charges vs churn](reports/figures/eda_charges_by_churn.png)
-![Correlation heatmap](reports/figures/eda_correlation_heatmap.png)
-
-## Feature Engineering
-
-Three business-driven features in
-[`src/feature_engineering.py`](src/feature_engineering.py) — all
-deterministic (row-wise), so no leakage, and each with a documented
-rationale:
-
-| Feature | Definition | Why |
-| --- | --- | --- |
-| `tenure_group` | 0–12 / 13–24 / 25–48 / 49+ months | tenure–churn relationship is non-linear; binning lets the linear model capture the shape |
-| `num_services` | number of subscribed add-on services (0–6) | proxies "stickiness" — every extra service is a reason to stay |
-| `avg_monthly_spend` | `TotalCharges / tenure` (fallback to `MonthlyCharges` for `tenure == 0`) | cleaner spending-level signal than discounted monthly charges |
-
-Feature engineering is deliberately kept minimal — the raw Telco features
-are already informative, and extra synthetic features add noise rather than
-signal.
-
-## Machine Learning Models
-
-Three models are compared with **5-fold stratified cross-validation** on
-the training set ([`src/train.py`](src/train.py)):
-
-1. **Logistic Regression** — `class_weight="balanced"` (interpretable baseline),
-2. **Random Forest** — 400 trees, balanced weights,
-3. **XGBoost** — 400 trees, `scale_pos_weight` = ratio of non-churners to
-   churners computed on the training fold.
-
-**Class imbalance** (~26.5% churners) is handled with class weights and
-`scale_pos_weight`. SMOTE is deliberately **not** used: with a leak-free
-pipeline and well-chosen metrics, class weighting achieves the same goal
-without synthetic-sample risks; it is listed as a future experiment.
-
-### Model selection rule
-
-The winner is **not** simply the most accurate model. The documented rule
-(implemented in `select_model`) is:
-
-1. highest mean CV **ROC-AUC**;
-2. if within 0.005 → highest mean CV **F1** for the churn class;
-3. final tie-break → interpretability / inference cost
-   (LR > XGBoost > RF).
-
-**Result:** Logistic Regression wins — it also happens to be the most
-interpretable and cheapest option to serve.
-
-## Model Evaluation
-
-Accuracy alone is misleading here (a "predict no churn for everyone" model
-already scores ~73.5%). The metrics that matter:
-
-- **Recall (churn)** — share of real churners we catch. Missing a churner
-  costs the company a customer. The priority metric.
-- **Precision** — share of flagged customers who really churn. Keeps the
-  retention campaign budget from being wasted.
-- **F1** — the harmonic balance between the two.
-- **ROC-AUC** — ranking quality across all thresholds.
-
-### Cross-validation (5-fold, mean ± std)
-
-| Model | ROC-AUC | Precision | Recall | F1 |
-| ----- | ------- | --------- | ------ | -- |
-| **Logistic Regression** ✅ | **0.8485 ± 0.0126** | 0.5194 | **0.8011** | **0.6301** |
-| Random Forest | 0.8404 ± 0.0121 | 0.5628 | 0.7101 | 0.6276 |
-| XGBoost | 0.8381 ± 0.0101 | 0.5432 | 0.7413 | 0.6265 |
-
-### Decision threshold
-
-A raw 0.5 threshold is not optimal for churn. The threshold is tuned on the
-**validation set** to maximise F1 → **0.61** (`THRESHOLD_METRIC` in
-`src/config.py` can be switched to `recall` if the business prefers
-catching more churners).
-
-### Held-out test set (1,409 customers, never used during training)
-
-| Threshold | Accuracy | Precision | Recall | F1 | ROC-AUC |
-| --------- | -------- | --------- | ------ | -- | ------- |
-| 0.50 | 0.7331 | 0.4983 | 0.7914 | 0.6116 | 0.8420 |
-| **0.61 (tuned)** | **0.7757** | **0.5620** | **0.7032** | **0.6247** | **0.8420** |
-
-![Confusion matrix](reports/figures/confusion_matrix_test.png)
-![ROC curves](reports/figures/roc_curves.png)
-![Precision-Recall](reports/figures/pr_curve.png)
-![Threshold tuning](reports/figures/threshold_curve.png)
-
-## Explainable AI
-
-Global and local explanations are produced with **SHAP** (for the linear
-final model, the mathematically equivalent exact coefficient decomposition
-is used, mapped back to the original features).
-
-* **Global importance** — which features matter on average:
-  ![SHAP importance](reports/figures/shap_importance.png)
-* **Summary (beeswarm)** — how each feature value pushes the prediction:
-  ![SHAP summary](reports/figures/shap_summary.png)
-* **Individual** — every prediction in the app comes with its own
-  waterfall, e.g. *"high churn risk because: tenure = 3 (+), monthly
-  charges = 89.5 (+), fiber optic (+), month-to-month contract (+)"*.
-
-The typical high-risk profile the model learns: **new customer, fiber
-optic, month-to-month contract, electronic check, no online security**.
-
-## Streamlit Demo
-
-An interactive demo app
-([`app/app.py`](app/app.py)) lets you type a customer profile and get:
-
-- a **HIGH / LOW churn risk** verdict (using the tuned threshold),
-- the **churn probability** (gauge) and prediction **confidence**,
-- the **key drivers** of the prediction (top SHAP contributions),
-- a **SHAP waterfall** showing each feature's impact on the probability,
-- the model's test metrics and selection rule.
-
-```bash
-streamlit run app/app.py
-```
-
-The app reuses the exact same pipeline as training (`models/churn_model.joblib`),
-so predictions shown in the UI are identical to `src.predict` outputs.
+The decision threshold is grid-searched on the **validation set** to
+maximise F1 for the churn class → **0.61** (not 0.50). Recall matters most:
+missing a churner costs more than calling a loyal customer.
 
 ## Results
 
-| | |
-| --- | --- |
-| Final model | Logistic Regression (balanced class weights) |
-| Selected via | 5-fold CV ROC-AUC (0.8485) + F1 tie-break + interpretability |
-| Decision threshold | 0.61 (F1-optimal on validation) |
-| Test ROC-AUC | **0.8420** |
-| Test recall (churn) | **0.7032** @ tuned threshold (0.7914 @ 0.5) |
-| Test precision | 0.5620 @ tuned threshold |
-| Test F1 | 0.6247 @ tuned threshold |
-| Explainability | SHAP global + per-prediction explanations |
+Real metrics from the hold-out test set (1,409 customers), reproduced
+exactly by the DVC pipeline:
 
-Full numeric breakdowns are in
-[`reports/model_comparison.csv`](reports/model_comparison.csv) and
-[`models/metrics.json`](models/metrics.json).
+| Model | CV ROC-AUC | CV F1 | CV Recall | CV Precision |
+| --- | --- | --- | --- | --- |
+| **Logistic Regression** ✅ | **0.8485 ± 0.013** | **0.6301** | **0.8011** | 0.5194 |
+| Random Forest | 0.8404 ± 0.012 | 0.6276 | 0.7101 | 0.5628 |
+| XGBoost | 0.8381 ± 0.010 | 0.6265 | 0.7413 | 0.5432 |
+
+**Test set — Logistic Regression:**
+
+| Threshold | Accuracy | Precision | Recall | F1 | ROC-AUC |
+| --- | --- | --- | --- | --- | --- |
+| 0.50 | 0.7331 | 0.4983 | 0.7914 | 0.6116 | 0.8420 |
+| **0.61 (tuned)** | **0.7757** | **0.5620** | **0.7032** | **0.6247** | **0.8420** |
+
+Confusion matrix at the tuned threshold: TP = 263, FP = 205, FN = 111,
+TN = 830 (the report figures live in `reports/figures/`).
+
+## Explainability
+
+Every prediction is explained with **SHAP** (model-agnostic game-theory
+feature attributions):
+
+* **Global** — mean |SHAP| importance and a beeswarm summary
+  (`reports/figures/shap_importance.png`, `shap_summary.png`).
+* **Local** — per prediction, contributions are aggregated back to the
+  original business features (one-hot columns are summed), so the API
+  returns drivers like *"Contract = Month-to-month increases churn risk
+  (+6.2 pp)"* instead of opaque encoded columns.
+* For Logistic Regression, exact coefficient-based contributions are used;
+  for tree models, `shap.TreeExplainer`.
+
+## MLOps
+
+| Tool | Role |
+| --- | --- |
+| **MLflow** | Experiment tracking (`customer-churn-prediction`: 3 candidate runs + final run, each with hyperparameters, CV metrics, training duration and artefacts) and the **Model Registry** (`customer-churn-model` v1, version reported by the API). |
+| **DVC** | Data & artefact versioning (raw CSV, trained model, processed splits) + reproducible pipeline (`dvc repro`: validate → train). No external remote is configured — the local cache is the source of truth (see [models/README.md](models/README.md)). |
+| **Pandera** | Data validation before training (required columns, dtypes, categories, ranges, missing values, duplicates). |
+| **Evidently** | [Monitoring report](monitoring/README.md) comparing the training window with simulated recent traffic (data quality, feature/target/prediction drift). Clearly labelled as a **simulated** scenario. |
+| **Docker** | `docker-compose.yml` runs frontend (nginx), backend (uvicorn) and MLflow with health checks; multi-stage frontend build. |
+| **GitHub Actions** | CI on every push/PR: ruff lint, 92 tests + coverage, structure validation, Docker image builds. Deployment is **not** configured (see Limitations). |
+
+The raw CSV is **not committed to Git** — it is versioned with **DVC**
+(`data/raw/Telco-Customer-Churn.csv.dvc`). See [`data/README.md`](data/README.md)
+for the download commands.
+
+## API
+
+FastAPI application with automatic OpenAPI docs at `http://localhost:8000/docs`.
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/health` | Liveness probe: API status + model loaded + version |
+| `GET` | `/api/model/info` | Model name, version, training date, threshold, feature count, test metrics, MLflow run id |
+| `POST` | `/api/predict` | Score one customer + SHAP explanation |
+| `POST` | `/api/predict/batch` | Upload a CSV, get scored rows back (`?format=csv` for a downloadable CSV) |
+| `GET` | `/api/dashboard/summary` | Dashboard KPIs and chart data (computed on the hold-out test set) |
+| `GET` | `/api/dashboard/drivers` | Global SHAP feature importance |
+
+**`POST /api/predict` response:**
+
+```json
+{
+  "prediction": "CHURN",
+  "probability": 0.921,
+  "risk_level": "HIGH",
+  "confidence": 0.921,
+  "threshold": 0.61,
+  "model_version": "1.0.0",
+  "top_drivers": [
+    {"feature": "tenure", "value": 3, "impact": "increases churn risk", "probability_shift": 0.133},
+    {"feature": "Contract", "value": "Month-to-month", "impact": "increases churn risk", "probability_shift": 0.062}
+  ],
+  "explanation": "The customer has a 92% churn probability. The strongest driver is tenure = 3, which increases churn risk."
+}
+```
+
+Risk bands (business rule, independent of the decision threshold): `LOW` < 40%,
+`MEDIUM` 40–70%, `HIGH` > 70%. Invalid input is rejected with a structured
+`422`, batch errors with `400`, oversized files with `413`, missing model
+with `503`.
+
+## Frontend
+
+A professional React + TypeScript dashboard (Vite, Tailwind CSS, Recharts):
+
+* **Dashboard** — total customers, predicted churn rate, high-risk count,
+  average probability, model version; churn/risk/probability distributions
+  and top churn drivers (all computed server-side from the hold-out test
+  set).
+* **Customer Prediction** — full customer form (validated by the API),
+  CHURN/NO-CHURN banner with probability, risk, confidence, model version,
+  top contributing factors and a waterfall chart.
+* **Model Information** — model name, version, training date, ROC-AUC,
+  precision, recall, F1, threshold, feature count, registry metadata.
+* **Batch Prediction** — CSV upload → scored table + automatic download of
+  the enriched CSV.
+
+> Screenshots are intentionally not included: this repository contains only
+> what was actually generated and tested. Run the frontend (commands below)
+> to see it.
 
 ## Installation
 
 ```bash
-# 1. clone the repository
-git clone https://github.com/<your-username>/customer-churn-prediction.git
+# 1. clone
+git clone https://github.com/oouissal/customer-churn-prediction.git
 cd customer-churn-prediction
 
-# 2. create and activate a virtual environment
+# 2. virtual environment
 python -m venv .venv
-.venv\Scripts\activate          # Windows
-# source .venv/bin/activate     # macOS / Linux
+# Windows (PowerShell):
+.venv\Scripts\Activate.ps1
+# macOS / Linux:
+# source .venv/bin/activate
 
-# 3. install the dependencies
+# 3. dependencies
 pip install -r requirements.txt
 
-# 4. download the dataset (see data/README.md for details)
-# Windows (PowerShell):
+# 4. dataset (see data/README.md for details) — Windows PowerShell:
 New-Item -ItemType Directory -Force -Path data\raw | Out-Null
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/Telco-Customer-Churn.csv" -OutFile "data\raw\Telco-Customer-Churn.csv"
 ```
 
-## Usage
+## Reproducing the pipeline (DVC)
 
 ```bash
-# train the pipeline end-to-end (cleaning -> CV -> selection -> threshold ->
-# test evaluation -> SHAP -> artefacts)                       ~3 minutes
-python -m src.train
-
-# quick prediction + explanation for a sample customer
-python -m src.predict
-
-# run the unit tests (34 tests)
-pytest
-
-# launch the interactive demo
-streamlit run app/app.py
-
-# (re)build and execute the notebooks with real outputs
-python scripts/build_notebooks.py
+dvc repro        # validate raw data -> train -> evaluate -> MLflow registry
+dvc metrics show # inspect tracked metrics
 ```
 
-## Project Structure
+`dvc repro` only re-runs stages whose inputs changed; the whole pipeline
+from the raw CSV takes ~1 minute.
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+| Service | URL | Notes |
+| --- | --- | --- |
+| Frontend | http://localhost:8080 | nginx serves the built React app |
+| Backend | http://localhost:8000 | FastAPI + Swagger at `/docs` |
+| MLflow UI | http://localhost:5000 | shared tracking store (`./mlruns` volume) |
+
+Health checks are defined for all three services. The images do **not**
+contain the dataset, `.venv` or caches.
+
+## Local Development
+
+### Backend
+
+```bash
+uvicorn app.main:app --app-dir backend --reload --port 8000
+# Swagger UI: http://localhost:8000/docs
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev          # http://localhost:5173 (proxies /api -> :8000)
+```
+
+### MLflow UI
+
+```bash
+mlflow ui --backend-store-uri sqlite:///mlruns/mlflow.db --port 5000
+# http://localhost:5000
+```
+
+## Testing
+
+```bash
+pytest                          # full suite (92 tests: unit + API)
+pytest --cov=src --cov=backend  # coverage report
+ruff check src backend tests monitoring scripts   # lint
+cd frontend && npm run build && npm run lint      # frontend build + lint
+```
+
+
+## Project Architecture
 
 ```
 customer-churn-prediction/
-├── data/
-│   ├── raw/                      <- raw CSV (NOT committed, see data/README.md)
-│   ├── processed/                <- train/test splits with features (generated)
-│   └── README.md                 <- dataset source + download commands
-├── notebooks/                    <- executed notebooks (exploration -> modelling)
-│   ├── 01_data_exploration.ipynb
-│   ├── 02_data_cleaning.ipynb
-│   ├── 03_eda.ipynb
-│   └── 04_modeling.ipynb
-├── src/
-│   ├── config.py                 <- paths + experiment constants
-│   ├── data_preprocessing.py     <- cleaning + leak-free ColumnTransformer
-│   ├── feature_engineering.py    <- tenure groups, service count, avg spend
-│   ├── train.py                  <- CV, selection, threshold tuning, artefacts
-│   ├── evaluate.py               <- metrics + diagnostic plots
-│   └── predict.py                <- loading, prediction, SHAP explanations
-├── models/
-│   ├── churn_model.joblib        <- trained pipeline + threshold + metadata
-│   └── metrics.json              <- full evaluation report
-├── app/
-│   └── app.py                    <- Streamlit demo
-├── tests/                        <- pytest suite (34 tests)
-├── scripts/
-│   └── build_notebooks.py        <- (re)builds + executes the notebooks
-├── reports/
-│   ├── figures/                  <- EDA, evaluation and SHAP figures
-│   └── model_comparison.csv      <- CV comparison table
-├── requirements.txt
-├── .gitignore
-├── LICENSE
+├── backend/                     <- FastAPI application
+│   ├── app/
+│   │   ├── main.py              <- app factory, CORS, error handling
+│   │   ├── core/config.py       <- environment-driven settings
+│   │   ├── api/                 <- routes, Pydantic schemas, dependencies
+│   │   └── services/            <- model / prediction / explanation / dashboard
+│   ├── tests/                   <- API test suite (httpx TestClient)
+│   ├── requirements.txt
+│   └── Dockerfile
+├── frontend/                    <- React + TypeScript + Vite + Tailwind + Recharts
+│   ├── src/pages/               <- Dashboard, Predict, Model, Batch
+│   ├── src/api/                 <- typed API client (no ML logic)
+│   ├── nginx.conf               <- SPA serving + /api proxy
+│   └── Dockerfile               <- multi-stage build
+├── src/                         <- ML package (shared by training + API)
+│   ├── config.py                <- paths + experiment constants
+│   ├── validation.py            <- Pandera raw-data schema
+│   ├── data_preprocessing.py    <- cleaning + leak-free ColumnTransformer
+│   ├── feature_engineering.py   <- tenure_group, num_services, avg_monthly_spend
+│   ├── train.py                 <- validation -> CV -> MLflow -> selection -> tuning
+│   ├── evaluate.py              <- metrics + diagnostic plots
+│   └── predict.py               <- inference + SHAP explanations
+├── monitoring/                  <- Evidently report (simulated scenario)
+├── notebooks/                   <- executed EDA & modelling notebooks
+├── data/                        <- raw (DVC) + processed (DVC) + README
+├── models/                      <- trained artefacts (DVC) + registry docs
+├── mlruns/                      <- local MLflow store (git-ignored)
+├── docs/architecture.md         <- WHY each technology was chosen
+├── dvc.yaml / dvc.lock          <- reproducible DVC pipeline
+├── docker-compose.yml           <- frontend + backend + mlflow
+├── .github/workflows/ci.yml     <- lint / test / structure / docker build
+├── pyproject.toml               <- project metadata + ruff + pytest config
+├── .env.example                 <- documented environment variables
 └── README.md
 ```
 
+## Limitations
+
+* **Single dataset, no live production system.** Everything runs locally;
+  there is no cloud deployment, no real-time stream and no real monitoring
+  traffic — the monitoring module is an honest, reproducible **simulation**
+  using the hold-out test set.
+* **No external DVC remote** — artefacts live in the local DVC cache; a
+  remote (S3/GCS/…) must be added to share them across machines.
+* **No authentication** — the API is demo-scoped and not exposed publicly.
+* **No hyperparameter tuning** — the three candidates use fixed, documented
+  hyperparameters; tuning is a listed future experiment.
+* **Single model type in production** — the registry contains the selected
+  Logistic Regression; the API currently serves the artefact file, and
+  loading models directly from the MLflow registry server is a documented
+  follow-up.
+* **Simulated lifecycle stages** — Development → Validation → Production is
+  documented as a process; nothing pretends to be a real promotion workflow.
+
 ## Future Improvements
 
-- Hyperparameter tuning (e.g. `RandomizedSearchCV` / Optuna) for the tree models.
-- Experiment with SMOTE/ADASYN inside the cross-validation loop and compare
-  against class weighting.
-- Cost-sensitive evaluation: attach a real €/$ cost to false negatives vs
-  false positives and tune the threshold on expected savings.
-- Add a small FastAPI endpoint serving the same pipeline.
-- Calibrate probabilities (isotonic/Platt) for decision-making.
-- CI pipeline (GitHub Actions) running `pytest` on every push.
-- SQL-based feature store demo (the spec allows SQL/SQLite) and drift
-  monitoring on live features.
+* Cloud deployment (e.g. a managed VM/container service) with a real DVC
+  remote and a hosted MLflow server.
+* Automated retraining triggered on drift alerts from the Evidently report.
+* Hyperparameter tuning (Optuna / RandomizedSearchCV) tracked in MLflow.
+* Probability calibration (isotonic/Platt) for decision-making.
+* Serving the model directly from the MLflow registry (staging/production
+  aliases) instead of the local artefact file.
+* Real-time scoring with a streaming pipeline if a live event source exists.
+* Kubernetes once multi-service scaling becomes an actual requirement.
 
 ## Author
 
 **Ouissal Nari** — Data Scientist in training, looking for Data Science /
 Data & AI internships and PFE opportunities.
 
-* [GitHub](https://github.com/ouissal-nari)
-* [LinkedIn](https://www.linkedin.com/) *(add your profile URL)*
+* [GitHub](https://github.com/oouissal)
+* [LinkedIn](https://www.linkedin.com/)
 
 ---
 
-*This project was built as a portfolio piece to demonstrate the complete
-machine-learning lifecycle: data preparation, EDA, feature engineering,
-model comparison, evaluation, explainability, application and testing.*
+*Built as a portfolio piece demonstrating the complete machine-learning
+lifecycle: data validation, EDA, feature engineering, model comparison,
+evaluation, explainability, API development, experiment tracking, model
+versioning, monitoring, containerisation and CI.*
 
