@@ -51,6 +51,7 @@ data/processed/*
 .env
 *.env
 .env.*
+!.env.example
 secrets.*
 credentials*
 *.pem
