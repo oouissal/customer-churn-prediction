@@ -223,9 +223,9 @@ already scores ~73.5%). The metrics that matter:
 
 | Model | ROC-AUC | Precision | Recall | F1 |
 | ----- | ------- | --------- | ------ | -- |
-| **Logistic Regression** ✅ | **0.8485 ± 0.0126** | 0.5328 | **0.8011** | **0.6301** |
-| Random Forest | 0.8404 ± 0.0121 | 0.5699 | 0.7101 | 0.6276 |
-| XGBoost | 0.8381 ± 0.0101 | 0.5534 | 0.7413 | 0.6265 |
+| **Logistic Regression** ✅ | **0.8485 ± 0.0126** | 0.5194 | **0.8011** | **0.6301** |
+| Random Forest | 0.8404 ± 0.0121 | 0.5628 | 0.7101 | 0.6276 |
+| XGBoost | 0.8381 ± 0.0101 | 0.5432 | 0.7413 | 0.6265 |
 
 ### Decision threshold
 
