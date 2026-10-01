@@ -1,4 +1,4 @@
-"""Build and execute the four analysis notebooks from the production code.
+﻿"""Build and execute the four analysis notebooks from the production code.
 
 Usage (from the project root)::
 
@@ -11,7 +11,6 @@ notebooks always stay in sync with ``src/`` and contain real outputs.
 
 from __future__ import annotations
 
-import sys
 import time
 from pathlib import Path
 
@@ -48,12 +47,12 @@ def code(source: str) -> nbformat.NotebookNode:
 
 
 # ---------------------------------------------------------------------------
-# Notebook 01 — Data exploration
+# Notebook 01 â€” Data exploration
 # ---------------------------------------------------------------------------
 def notebook_01() -> nbformat.NotebookNode:
     cells = [
         md(
-            "# 01 — Data Exploration\n\n"
+            "# 01 â€” Data Exploration\n\n"
             "First contact with the raw **IBM Telco Customer Churn** dataset:\n"
             "schema, data types, summary statistics, missing values and value "
             "ranges. All loading logic is reused from `src/data_preprocessing.py` "
@@ -72,7 +71,7 @@ def notebook_01() -> nbformat.NotebookNode:
         code("df.describe().T[['count', 'mean', 'std', 'min', '50%', 'max']]"),
         md(
             "## 4. Missing values\n\n"
-            "`TotalCharges` is stored as text and contains 11 blank values — "
+            "`TotalCharges` is stored as text and contains 11 blank values â€” "
             "these correspond to brand-new customers (`tenure == 0`)."
         ),
         code(
@@ -92,28 +91,28 @@ def notebook_01() -> nbformat.NotebookNode:
         ),
         md(
             "**Key observations**\n\n"
-            "* 7,043 rows, 21 columns — small, clean and realistic.\n"
+            "* 7,043 rows, 21 columns â€” small, clean and realistic.\n"
             "* `customerID` is an identifier, not a feature.\n"
             "* `TotalCharges` is text and needs coercion; 11 blanks for new customers.\n"
             "* `SeniorCitizen` is stored as 0/1 while all other flags use Yes/No.\n"
-            "* No other missing values — the dataset is mostly clean."
+            "* No other missing values â€” the dataset is mostly clean."
         ),
     ]
     return nbformat.v4.new_notebook(cells=cells, metadata=KERNEL_META)
 
 
 # ---------------------------------------------------------------------------
-# Notebook 02 — Data cleaning
+# Notebook 02 â€” Data cleaning
 # ---------------------------------------------------------------------------
 def notebook_02() -> nbformat.NotebookNode:
     cells = [
         md(
-            "# 02 — Data Cleaning\n\n"
+            "# 02 â€” Data Cleaning\n\n"
             "Every cleaning step is **deterministic and row-wise** (no statistics "
             "learned from the data), so it is safe to apply before any split. "
             "Anything that requires learned statistics (imputation, scaling, "
             "encoding) lives inside the scikit-learn pipeline fitted on the "
-            "training set only — see `src/data_preprocessing.py`."
+            "training set only â€” see `src/data_preprocessing.py`."
         ),
         code(BOOTSTRAP + "\n"
              "import pandas as pd\n"
@@ -167,7 +166,7 @@ def notebook_02() -> nbformat.NotebookNode:
             "           'avg_monthly_spend']].head()"
         ),
         md(
-            "**Outcome** — the cleaned dataset has 7,043 rows, 0 duplicates, 0 "
+            "**Outcome** â€” the cleaned dataset has 7,043 rows, 0 duplicates, 0 "
             "missing values and a 26.5% churn rate, ready for EDA and modelling."
         ),
     ]
@@ -175,7 +174,7 @@ def notebook_02() -> nbformat.NotebookNode:
 
 
 # ---------------------------------------------------------------------------
-# Notebook 03 — EDA
+# Notebook 03 â€” EDA
 # ---------------------------------------------------------------------------
 EDA_SETUP = (
     "import numpy as np\n"
@@ -200,7 +199,7 @@ EDA_SETUP = (
 def notebook_03() -> nbformat.NotebookNode:
     cells = [
         md(
-            "# 03 — Exploratory Data Analysis\n\n"
+            "# 03 â€” Exploratory Data Analysis\n\n"
             "Business questions this notebook answers:\n\n"
             "* How imbalanced is churn?\n"
             "* Which customer segments have the highest churn?\n"
@@ -361,12 +360,12 @@ def notebook_03() -> nbformat.NotebookNode:
 
 
 # ---------------------------------------------------------------------------
-# Notebook 04 — Modelling & evaluation
+# Notebook 04 â€” Modelling & evaluation
 # ---------------------------------------------------------------------------
 def notebook_04() -> nbformat.NotebookNode:
     cells = [
         md(
-            "# 04 — Modelling & Evaluation\n\n"
+            "# 04 â€” Modelling & Evaluation\n\n"
             "This notebook drives the production training script "
             "(`src.train.main`) end-to-end and displays the resulting "
             "artefacts: cross-validation comparison, threshold tuning, "
@@ -376,7 +375,7 @@ def notebook_04() -> nbformat.NotebookNode:
             "* 5-fold stratified cross-validation of Logistic Regression, "
             "Random Forest and XGBoost;\n"
             "* class imbalance handled with class weights / "
-            "`scale_pos_weight` (no SMOTE — see README);\n"
+            "`scale_pos_weight` (no SMOTE â€” see README);\n"
             "* decision threshold tuned on the validation set (F1);\n"
             "* final evaluation on the untouched test set."
         ),
@@ -418,7 +417,7 @@ def notebook_04() -> nbformat.NotebookNode:
             "    print(name)\n"
             "    display(Image(str(config.FIGURES_DIR / name)))"
         ),
-        md("## 5. SHAP — global explanations"),
+        md("## 5. SHAP â€” global explanations"),
         code(
             "for name in ['shap_importance.png', 'shap_summary.png']:\n"
             "    print(name)\n"
@@ -456,8 +455,8 @@ def notebook_04() -> nbformat.NotebookNode:
             "interpretability (see the selection rule).\n"
             "* The tuned threshold improves the precision/recall trade-off for "
             "a retention campaign.\n"
-            "* The saved pipeline in `models/` powers `src/predict.py` and the "
-            "Streamlit application."
+            "* The saved pipeline in `models/` powers `src/predict.py`, the "
+            "FastAPI backend and the React dashboard."
         ),
     ]
     return nbformat.v4.new_notebook(cells=cells, metadata=KERNEL_META)

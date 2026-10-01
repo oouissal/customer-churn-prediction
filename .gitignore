@@ -35,11 +35,13 @@ htmlcov/
 
 # ---------------------------------------------------------------------------
 # Data
-# The raw dataset is intentionally NOT committed (see data/README.md).
-# Processed files are reproducible with `python -m src.train`.
+# The raw dataset is intentionally NOT committed (see data/README.md) — it is
+# versioned with DVC instead. Processed files are reproducible with
+# `dvc repro` or `python -m src.train`.
 # ---------------------------------------------------------------------------
 data/raw/*
 !data/raw/.gitkeep
+!data/raw/*.dvc
 data/processed/*
 !data/processed/.gitkeep
 
@@ -66,6 +68,25 @@ Desktop.ini
 *.swo
 
 # ---------------------------------------------------------------------------
-# Streamlit
+# MLflow tracking store (experiment runs are reproducible via `dvc repro`;
+# the database itself is not committed)
 # ---------------------------------------------------------------------------
-.streamlit/secrets.toml
+mlruns/*
+!mlruns/.gitkeep
+
+# ---------------------------------------------------------------------------
+# DVC cache (content-addressed storage — never commit)
+# ---------------------------------------------------------------------------
+.dvc/cache
+
+# ---------------------------------------------------------------------------
+# Frontend (Node)
+# ---------------------------------------------------------------------------
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+
+# ---------------------------------------------------------------------------
+# Monitoring reports (regenerate with monitoring/generate_report.py)
+# ---------------------------------------------------------------------------
+monitoring/reports/*.html
