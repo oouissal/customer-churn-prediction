@@ -1,0 +1,22 @@
+# Never put the dataset, the virtualenv, caches or build outputs in images.
+.venv
+venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+htmlcov
+.coverage
+.git
+.dvc/cache
+mlruns
+frontend/node_modules
+frontend/dist
+data/raw
+data/processed
+notebooks
+monitoring/reports
+docs
+*.md
+!README.md
