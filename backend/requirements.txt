@@ -1,0 +1,18 @@
+# ---------------------------------------------------------------------------
+# API framework
+# ---------------------------------------------------------------------------
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9          # CSV uploads for /predict/batch
+pydantic>=2.7
+
+# ---------------------------------------------------------------------------
+# Runtime ML dependencies of the prediction/explanation services
+# (training-only tools such as MLflow/DVC/Evidently live in the root
+# requirements.txt and are NOT installed in the production image)
+# ---------------------------------------------------------------------------
+numpy>=2.0
+pandas>=2.2
+joblib>=1.4
+scikit-learn>=1.5
+shap>=0.46
