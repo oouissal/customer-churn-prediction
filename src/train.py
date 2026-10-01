@@ -6,24 +6,33 @@ Run from the project root with::
 
 The script performs the complete modelling workflow:
 
-1. load + clean the raw data (deterministic business rules only),
-2. engineer features (row-wise, no learned statistics -> no leakage),
-3. stratified 60/20/20 train/validation/test split,
-4. 5-fold stratified cross-validation of Logistic Regression, Random
+1. **validate** the raw data (Pandera schema — training stops on invalid data),
+2. load + clean the raw data (deterministic business rules only),
+3. engineer features (row-wise, no learned statistics -> no leakage),
+4. stratified 60/20/20 train/validation/test split,
+5. 5-fold stratified cross-validation of Logistic Regression, Random
    Forest and XGBoost (class imbalance handled with class weights /
    ``scale_pos_weight`` — SMOTE is deliberately not used, see README),
-5. model selection (ROC-AUC first, F1 tie-break, interpretability last),
-6. decision-threshold tuning on the validation set,
-7. final training on train+validation and honest evaluation on the test set,
-8. SHAP global explanations,
-9. persistence of the pipeline, metrics and every report figure.
+6. model selection (ROC-AUC first, F1 tie-break, interpretability last),
+7. decision-threshold tuning on the validation set,
+8. final training on train+validation and honest evaluation on the test set,
+9. SHAP global explanations,
+10. persistence of the pipeline, metrics and every report figure.
+
+Every candidate model and the final model are tracked in **MLflow**
+(experiment ``customer-churn-prediction``): hyperparameters, cross-validation
+metrics, training duration, artefacts and figures. The selected model is
+registered in the **MLflow Model Registry** as
+``customer-churn-model`` and the registry version is stored in the saved
+artefact so the API can report which model version is deployed.
 """
 
 from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 import matplotlib
@@ -31,6 +40,7 @@ import matplotlib
 matplotlib.use("Agg")  # headless backend
 
 import joblib  # noqa: E402
+import mlflow  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import xgboost as xgb  # noqa: E402
@@ -52,6 +62,7 @@ from src.data_preprocessing import (  # noqa: E402
 )
 from src.feature_engineering import FeatureEngineer, add_features  # noqa: E402
 from src.predict import plot_global_importance, plot_global_summary  # noqa: E402
+from src.validation import validate_raw_data  # noqa: E402
 
 CV_SCORING = {
     "roc_auc": "roc_auc",
@@ -154,10 +165,18 @@ def main() -> dict:
     print(" CUSTOMER CHURN PREDICTION — TRAINING PIPELINE")
     print("=" * 72)
 
-    # 1. Data ---------------------------------------------------------------
-    print("\n[1/7] Loading and cleaning data ...")
+    # MLflow experiment tracking (file-backed by default, see config.py).
+    mlflow.set_tracking_uri(config.MLFLOW_TRACKING_URI)
+    mlflow.set_experiment(config.MLFLOW_EXPERIMENT_NAME)
+    print(f"MLflow tracking URI: {config.MLFLOW_TRACKING_URI}")
+
+    # 1. Validate + load data ---------------------------------------------------
+    print("\n[1/7] Validating and loading data ...")
     raw = load_raw_data()
-    df = clean_data(raw)
+    validated = validate_raw_data(raw)
+    print(f"       data validation passed: {validated.shape[0]} rows, "
+          f"{validated.shape[1]} columns")
+    df = clean_data(validated)
     y = encode_target(df)
     X = add_features(df.drop(columns=[config.TARGET, config.ID_COLUMN]))
     print(f"       {raw.shape[0]} rows loaded, "
@@ -181,28 +200,38 @@ def main() -> dict:
     cv_rows = []
     fitted_on_train = {}
     for name, pipeline in models.items():
-        scores = cross_validate(
-            pipeline, X_train, y_train, cv=cv,
-            scoring=CV_SCORING, n_jobs=1, return_train_score=False,
-        )
-        # cross_validate fits clones; refit once for the validation plots.
-        pipeline.fit(X_train, y_train)
-        fitted_on_train[name] = pipeline
-        cv_rows.append({
-            "model": name,
-            "roc_auc_mean": np.mean(scores["test_roc_auc"]),
-            "roc_auc_std": np.std(scores["test_roc_auc"]),
-            "f1_mean": np.mean(scores["test_f1"]),
-            "f1_std": np.std(scores["test_f1"]),
-            "recall_mean": np.mean(scores["test_recall"]),
-            "recall_std": np.std(scores["test_recall"]),
-            "precision_mean": np.mean(scores["test_precision"]),
-            "precision_std": np.std(scores["test_precision"]),
-        })
+        with mlflow.start_run(run_name=name, log_system_metrics=False):
+            mlflow.log_param("model_name", name)
+            mlflow.log_params(pipeline.named_steps["model"].get_params())
+            start = time.perf_counter()
+            scores = cross_validate(
+                pipeline, X_train, y_train, cv=cv,
+                scoring=CV_SCORING, n_jobs=1, return_train_score=False,
+            )
+            # cross_validate fits clones; refit once for the validation plots.
+            pipeline.fit(X_train, y_train)
+            training_duration = time.perf_counter() - start
+            fitted_on_train[name] = pipeline
+            cv_metrics = {
+                "roc_auc_mean": float(np.mean(scores["test_roc_auc"])),
+                "roc_auc_std": float(np.std(scores["test_roc_auc"])),
+                "f1_mean": float(np.mean(scores["test_f1"])),
+                "f1_std": float(np.std(scores["test_f1"])),
+                "recall_mean": float(np.mean(scores["test_recall"])),
+                "recall_std": float(np.std(scores["test_recall"])),
+                "precision_mean": float(np.mean(scores["test_precision"])),
+                "precision_std": float(np.std(scores["test_precision"])),
+            }
+            mlflow.log_metrics(cv_metrics)
+            mlflow.log_metric("training_duration_seconds", training_duration)
+            mlflow.set_tag("dataset_version", "telco-churn-v1")
+            mlflow.set_tag("split", "60/20/20 stratified")
+            cv_rows.append({"model": name, **cv_metrics})
         print(f"       {name:<20} ROC-AUC={np.mean(scores['test_roc_auc']):.4f} "
               f"±{np.std(scores['test_roc_auc']):.4f} | "
               f"F1={np.mean(scores['test_f1']):.4f} | "
-              f"Recall={np.mean(scores['test_recall']):.4f}")
+              f"Recall={np.mean(scores['test_recall']):.4f} "
+              f"({training_duration:.1f}s)")
 
     cv_summary = pd.DataFrame(cv_rows)
     selected_name = select_model(cv_summary)
@@ -287,13 +316,47 @@ def main() -> dict:
     preprocessor = final_pipeline.named_steps["preprocessor"]
     background = preprocessor.transform(X_train_full.iloc[:100])
 
+    # MLflow: track the final model, register it and record the version so
+    # the API can always report which model is deployed.
+    model_version = config.FALLBACK_MODEL_VERSION
+    mlflow_run_id = None
+    with mlflow.start_run(run_name=f"final-{selected_name}",
+                          log_system_metrics=False) as final_run:
+        mlflow_run_id = final_run.info.run_id
+        mlflow.log_params(final_pipeline.named_steps["model"].get_params())
+        mlflow.log_metric("decision_threshold", best_threshold)
+        for key, value in test_metrics_tuned.items():
+            if isinstance(value, (int, float)):
+                mlflow.log_metric(f"test_{key}", value)
+        mlflow.set_tag("model_name", selected_name)
+        mlflow.set_tag("stage", "candidate")
+        for figure in sorted(config.FIGURES_DIR.glob("*.png")):
+            mlflow.log_artifact(str(figure), artifact_path="figures")
+        model_info = mlflow.sklearn.log_model(
+            sk_model=final_pipeline,
+            artifact_path="model",
+            registered_model_name=config.MLFLOW_REGISTERED_MODEL_NAME,
+            code_paths=[str(config.PROJECT_ROOT / "src")],
+            input_example=X_train_full.head(5),
+            # cloudpickle supports custom transformers (FeatureEngineer);
+            # the default skops format rejects them.
+            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+        )
+        if model_info.registered_model_version is not None:
+            model_version = f"{model_info.registered_model_version}.0.0"
+    print(f"       Registered {config.MLFLOW_REGISTERED_MODEL_NAME} "
+          f"version {model_version} (run {mlflow_run_id})")
+
     metrics = {
         "model_name": selected_name,
-        "trained_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "trained_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "selection_rule": "ROC-AUC first; F1 (churn) tie-break within 0.005; "
                           "interpretability as final tie-break",
         "threshold": best_threshold,
         "threshold_metric": config.THRESHOLD_METRIC,
+        "model_version": model_version,
+        "mlflow_run_id": mlflow_run_id,
+        "mlflow_registered_model": config.MLFLOW_REGISTERED_MODEL_NAME,
         "cv_table": cv_summary.to_dict(orient="records"),
         "validation_metrics_at_tuned_threshold": tune_metrics,
         "test_metrics_threshold_050": test_metrics_050,
@@ -314,6 +377,9 @@ def main() -> dict:
         "threshold": best_threshold,
         "model_name": selected_name,
         "trained_at": metrics["trained_at"],
+        "model_version": model_version,
+        "mlflow_run_id": mlflow_run_id,
+        "mlflow_registered_model": config.MLFLOW_REGISTERED_MODEL_NAME,
     }
     joblib.dump(artifact, config.MODEL_PATH)
     config.METRICS_PATH.write_text(

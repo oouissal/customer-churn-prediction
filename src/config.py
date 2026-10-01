@@ -8,6 +8,7 @@ live here too, making the pipeline easy to reconfigure without touching code.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -30,6 +31,29 @@ METRICS_PATH = MODELS_DIR / "metrics.json"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 FIGURES_DIR = REPORTS_DIR / "figures"
 COMPARISON_CSV_PATH = REPORTS_DIR / "model_comparison.csv"
+
+# ---------------------------------------------------------------------------
+# MLflow experiment tracking & model registry
+# ---------------------------------------------------------------------------
+# Default: local SQLite tracking store inside the repository (the file-based
+# store is deprecated in MLflow 3.x). Override with the
+# MLFLOW_TRACKING_URI environment variable (e.g. a shared tracking server).
+MLFLOW_TRACKING_URI = os.environ.get(
+    "MLFLOW_TRACKING_URI",
+    f"sqlite:///{(PROJECT_ROOT / 'mlruns' / 'mlflow.db').as_posix()}",
+)
+MLFLOW_EXPERIMENT_NAME = "customer-churn-prediction"
+MLFLOW_REGISTERED_MODEL_NAME = "customer-churn-model"
+
+# Where MLflow stores model/artefact files for local runs.
+os.environ.setdefault(
+    "MLFLOW_DEFAULT_ARTIFACT_ROOT",
+    (PROJECT_ROOT / "mlruns" / "mlartifacts").as_uri(),
+)
+
+# Model version reported by the API when the MLflow registry is unavailable
+# (e.g. the model was produced before registry integration).
+FALLBACK_MODEL_VERSION = "1.0.0"
 
 # ---------------------------------------------------------------------------
 # Experiment settings
