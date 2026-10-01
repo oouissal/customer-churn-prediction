@@ -1,0 +1,62 @@
+schema: '2.0'
+stages:
+  validate:
+    cmd: python -m src.validation
+    deps:
+    - path: data/raw/Telco-Customer-Churn.csv
+      hash: md5
+      md5: 3b0bfab28a8101b4e4fdd08025a5c235
+      size: 970457
+  train:
+    cmd: python -m src.train
+    deps:
+    - path: data/raw/Telco-Customer-Churn.csv
+      hash: md5
+      md5: 3b0bfab28a8101b4e4fdd08025a5c235
+      size: 970457
+    - path: src/config.py
+      hash: md5
+      md5: c6d98c92db18eea3b6d6b581d795cfb4
+      size: 4789
+    - path: src/data_preprocessing.py
+      hash: md5
+      md5: b299ae69e1aed2f06cea8b0b05304440
+      size: 6853
+    - path: src/evaluate.py
+      hash: md5
+      md5: f0a4deff1bd33369f1dc22478b575227
+      size: 8983
+    - path: src/feature_engineering.py
+      hash: md5
+      md5: 7af20f39586976fa0dd51afc45d98f07
+      size: 3451
+    - path: src/predict.py
+      hash: md5
+      md5: 47c7697a2686cc72551a3b4b5d5d4cad
+      size: 15860
+    - path: src/train.py
+      hash: md5
+      md5: 4404465a840d66c8f97601130c4ab709
+      size: 17240
+    - path: src/validation.py
+      hash: md5
+      md5: c5fd008609dafb5e9c6c8200c02a5225
+      size: 5504
+    outs:
+    - path: data/processed
+      hash: md5
+      md5: e7a624c1c9692133fe9e4f3ba0c66582.dir
+      size: 1055278
+      nfiles: 2
+    - path: models/churn_model.joblib
+      hash: md5
+      md5: d7ebfc8c7d81066db1d6e9c0f49a1ddc
+      size: 51063
+    - path: models/metrics.json
+      hash: md5
+      md5: f4ab3624cd344b8b302fdec80d3bdc49
+      size: 2557
+    - path: reports/model_comparison.csv
+      hash: md5
+      md5: 70df4cd4efb2d1642328526176073a65
+      size: 310

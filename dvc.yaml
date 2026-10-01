@@ -1,0 +1,35 @@
+# DVC pipeline — reproducible churn modelling workflow.
+#
+# Stages:
+#   validate  ->  raw data schema validation (Pandera), always re-run
+#   train     ->  cleaning -> feature engineering -> CV -> threshold tuning
+#                 -> MLflow tracking/registry -> artefacts
+#
+# Reproduce everything with:  dvc repro
+# See README.md / docs/architecture.md for details.
+
+stages:
+  validate:
+    cmd: python -m src.validation
+    deps:
+      - data/raw/Telco-Customer-Churn.csv
+    always_changed: true
+
+  train:
+    cmd: python -m src.train
+    deps:
+      - data/raw/Telco-Customer-Churn.csv
+      - src/config.py
+      - src/data_preprocessing.py
+      - src/evaluate.py
+      - src/feature_engineering.py
+      - src/predict.py
+      - src/train.py
+      - src/validation.py
+    outs:
+      - data/processed
+      - models/churn_model.joblib
+      - reports/model_comparison.csv
+    metrics:
+      - models/metrics.json:
+          cache: false

@@ -1,9 +1,12 @@
 {
   "model_name": "Logistic Regression",
-  "trained_at": "2026-10-01T18:51:27+00:00",
+  "trained_at": "2026-10-01T21:17:38+00:00",
   "selection_rule": "ROC-AUC first; F1 (churn) tie-break within 0.005; interpretability as final tie-break",
   "threshold": 0.61,
   "threshold_metric": "f1",
+  "model_version": "1.0.0",
+  "mlflow_run_id": "69f58a6acbbd42059e54fb31b0bb68d6",
+  "mlflow_registered_model": "customer-churn-model",
   "cv_table": [
     {
       "model": "Logistic Regression",
