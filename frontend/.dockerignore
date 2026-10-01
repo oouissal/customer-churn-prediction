@@ -1,0 +1,4 @@
+# Frontend files to exclude from Docker build context (kept alongside the
+# generic .dockerignore at the repository root).
+node_modules
+dist
